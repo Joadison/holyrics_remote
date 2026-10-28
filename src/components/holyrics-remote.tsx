@@ -298,7 +298,6 @@ export function HolyricsRemote() {
           {activePanel === "files" ? <FilesPanel {...panelProps} /> : null}
           {activePanel === "quick" ? <QuickPanel {...panelProps} /> : null}
         </div>
-
         <aside aria-label="Resumo da conexão e controles" className="workspace-aside">
           {/* <section className="aside-card connection-card">
             <div className="aside-card-heading">

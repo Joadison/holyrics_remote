@@ -237,10 +237,6 @@ export function StageControls({
   )
 }
 
-/*
-  Substitua a função PraisePanel atual (e apague a versão comentada
-  logo abaixo dela) por esta. Os imports já existentes servem.
-*/
 export function PraisePanel(props: SharedPanelProps) {
   type ValidSlide = { text: string; originalIndex: number }
 
@@ -260,6 +256,7 @@ export function PraisePanel(props: SharedPanelProps) {
   const [slidesError, setSlidesError] = useState("")
   const [liveIndex, setLiveIndex] = useState<number | null>(null) // posição em `slides`
   const [pending, setPending] = useState("") // "start" | "next" | "prev" | "close" | "slide-N"
+  const [backgroundPending, setBackgroundPending] = useState(false)
 
   const busy = pending !== ""
 
@@ -294,14 +291,19 @@ export function PraisePanel(props: SharedPanelProps) {
     }
   }
 
-  // Remove o título (índice 0) e slides vazios
-  function normalizeSlides(rawSlides: { text?: string }[]): ValidSlide[] {
-    return rawSlides
+
+  function normalizeSlides(rawSlides: { text?: string }[]) {
+    const cleaned = rawSlides
       .map((slide, originalIndex) => ({
         text: (slide.text ?? "").trim(),
         originalIndex,
       }))
-      .filter((s) => s.text.length > 0 && s.originalIndex !== 0)
+      .filter((s) => s.text.length > 0)
+
+    return {
+      title: cleaned[0]?.text ?? "",
+      slides: cleaned,
+    }
   }
 
   async function openSong(song: Song) {
@@ -316,17 +318,17 @@ export function PraisePanel(props: SharedPanelProps) {
         id: song.id,
         fields: "id,title,slides",
       })
-      setSlides(
-        normalizeSlides((data as { slides?: { text?: string }[] })?.slides ?? []),
+      const normalized = normalizeSlides(
+        (data as { slides?: { text?: string }[] })?.slides ?? [],
       )
+      setSlides(normalized.slides) // ✅ agora envia só o array
     } catch {
       try {
         const fallback = await request("GetLyrics", { id: song.id })
-        setSlides(
-          normalizeSlides(
-            (fallback as { slides?: { text?: string }[] })?.slides ?? [],
-          ),
+        const normalized = normalizeSlides(
+          (fallback as { slides?: { text?: string }[] })?.slides ?? [],
         )
+        setSlides(normalized.slides)
       } catch (secondError) {
         setSlidesError(getHolyricsErrorMessage(secondError))
       }
@@ -362,16 +364,17 @@ export function PraisePanel(props: SharedPanelProps) {
     if (!selectedSong) return
     const slide = slides[position]
     if (!slide) return
+
     setPending(`slide-${position}`)
     try {
       await request("ShowSong", {
         id: selectedSong.id,
-        initial_index: slide.originalIndex,
+        initial_index: position + 1, // ← teste com position primeiro
       })
       setLiveIndex(position)
       onPresented({ title: `${songTitle} · slide ${position + 1}`, type: "Louvor" })
     } catch {
-      // erro reportado pelo estado global
+      // ...
     } finally {
       setPending("")
     }
@@ -408,6 +411,20 @@ export function PraisePanel(props: SharedPanelProps) {
     }
   }
 
+  async function showBackgroundWithoutLyrics() {
+    if (!selectedSong || backgroundPending) return
+    setBackgroundPending(true)
+    try {
+      // Liga o F9 → esconde a letra, mantém o fundo
+      await request("SetF9", { enable: true })
+      setLiveIndex(null) // opcional: marca que não há slide "ao vivo"
+      onPresented({ title: "Fundo sem letra (F9)", type: "Controle" })
+    } catch {
+      // tratamento
+    } finally {
+      setBackgroundPending(false)
+    }
+  }
   /* ---------------------------------------------------------------
      MODO PLAYER: só a música atual, a letra e os controles
   --------------------------------------------------------------- */
@@ -470,7 +487,7 @@ export function PraisePanel(props: SharedPanelProps) {
                       aria-label={`Projetar slide ${position + 1}`}
                       className={`slide-tile${isLive ? " is-live" : ""}${isPending ? " is-pending" : ""}`}
                       disabled={busy}
-                      id={`praise-slide-${position}`}
+                      id={`praise-slide-${position + 1}`}
                       onClick={() => void showSlide(position)}
                       type="button"
                     >
@@ -484,6 +501,15 @@ export function PraisePanel(props: SharedPanelProps) {
                 )
               })}
             </ol>
+            <button
+              className="button-secondary button-full"
+              disabled={busy || backgroundPending}
+              onClick={() => void showBackgroundWithoutLyrics()}
+              type="button"
+            >
+              {backgroundPending ? <LoaderCircle className="spin" /> : null}
+              Exibir apenas fundo (sem letra)
+            </button>
           </>
         )}
 
@@ -595,131 +621,6 @@ export function PraisePanel(props: SharedPanelProps) {
     </section>
   )
 }
-
-/* export function PraisePanel(props: SharedPanelProps) {
-  const { request, isConfigured, onOpenSettings, onPresented } = props
-  const [query, setQuery] = useState("")
-  const [songs, setSongs] = useState<Song[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [error, setError] = useState("")
-  const [pendingId, setPendingId] = useState<string | number | null>(null)
-
-  async function searchSongs() {
-    if (!isConfigured) return
-    setIsSearching(true)
-    setHasSearched(true)
-    setError("")
-    try {
-      const data = await request("SearchSong", {
-        text: query.trim(),
-        title: true,
-        artist: true,
-        note: true,
-        lyrics: false,
-        fields: "id,title,artist,groups",
-      })
-      setSongs(Array.isArray(data) ? (data as Song[]) : [])
-    } catch (requestError) {
-      setSongs([])
-      setError(getHolyricsErrorMessage(requestError))
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  async function showSong(song: Song) {
-    const title = song.title?.trim() || "Música sem título"
-    setPendingId(song.id)
-    try {
-      await request("ShowSong", { id: song.id })
-      onPresented({ title, type: "Louvor" })
-    } catch {
-      // O erro é comunicado pelo estado global do painel.
-    } finally {
-      setPendingId(null)
-    }
-  }
-
-  return (
-    <section aria-labelledby="praise-title" className="panel-card" role="tabpanel">
-      <PanelIntro
-        id="praise-title"
-        description="Encontre uma música e envie a letra para o telão."
-        eyebrow="BIBLIOTECA"
-        icon={<Music2 aria-hidden="true" />}
-        title="Louvor"
-      />
-      <SearchBar
-        busy={isSearching}
-        disabled={!isConfigured}
-        onChange={setQuery}
-        onSearch={() => void searchSongs()}
-        placeholder="Buscar música ou artista"
-        value={query}
-      />
-      {!isConfigured ? (
-        <EmptyState
-          action="Configurar conexão"
-          description="Adicione o IP e o token do computador que executa o Holyrics."
-          icon={<Music2 aria-hidden="true" />}
-          onAction={onOpenSettings}
-          title="Conecte o Holyrics"
-        />
-      ) : error ? (
-        <div className="inline-error" role="alert">{error}</div>
-      ) : isSearching ? (
-        <div className="loading-state"><LoaderCircle className="spin" /> Buscando músicas...</div>
-      ) : hasSearched && songs.length === 0 ? (
-        <EmptyState
-          description="Tente outro título ou nome de artista."
-          icon={<Music2 aria-hidden="true" />}
-          title="Nenhuma música encontrada"
-        />
-      ) : !hasSearched ? (
-        <EmptyState
-          description="Digite um título ou artista. Você também pode buscar sem texto para listar a biblioteca."
-          icon={<Search aria-hidden="true" />}
-          title="Sua próxima música começa aqui"
-        />
-      ) : (
-        <div aria-label="Resultados de músicas" className="result-list">
-          {songs.map((song, index) => {
-            const title = song.title?.trim() || "(sem título)"
-            const artist = song.artist?.trim() || "Artista não informado"
-            return (
-              <article className="result-row" key={`${song.id}-${index}`}>
-                <div className="result-copy">
-                  <h3>{title}</h3>
-                  <p>{artist}</p>
-                </div>
-                <button
-                  aria-label={`Projetar ${title}`}
-                  className="project-button"
-                  disabled={pendingId !== null}
-                  onClick={() => void showSong(song)}
-                  type="button"
-                >
-                  {pendingId === song.id ? (
-                    <LoaderCircle className="spin" />
-                  ) : (
-                    <Play aria-hidden="true" fill="currentColor" />
-                  )}
-                  <span>Projetar</span>
-                </button>
-              </article>
-            )
-          })}
-        </div>
-      )}
-      <StageControls
-        isConfigured={isConfigured}
-        onClosed={() => onPresented({ title: "Apresentação encerrada", type: "Controle" })}
-        request={request}
-      />
-    </section>
-  )
-} */
 
 export function TextsPanel(props: SharedPanelProps) {
   const { request, isConfigured, onOpenSettings, onPresented } = props
