@@ -349,6 +349,12 @@ export function PraisePanel(props: SharedPanelProps) {
     if (!selectedSong) return
     setPending("start")
     try {
+      if (currentThemeId) {
+        await request("SetInterfaceInput", {
+          id: "main_selected_theme",
+          value: currentThemeId, // Theme ID
+        })
+      }
       await request("ShowSong", { id: selectedSong.id })
       setLiveIndex(slides.length > 0 ? 0 : null)
       onPresented({ title: songTitle, type: "Louvor" })
@@ -655,6 +661,12 @@ export function TextsPanel(props: SharedPanelProps) {
     const title = text.title?.trim() || "Texto sem título"
     setPendingId(text.id)
     try {
+      if (currentThemeId) {
+        await request("SetInterfaceInput", {
+          id: "main_selected_theme",
+          value: currentThemeId, // Theme ID
+        })
+      }
       await request("ShowText", { id: text.id })
       onPresented({ title, type: "Texto" })
     } catch {
