@@ -36,6 +36,7 @@ type SharedPanelProps = {
   isConfigured: boolean
   onOpenSettings: () => void
   onPresented: (presentation: Presentation) => void
+   currentThemeId?: string | null
 }
 
 type Song = {
@@ -240,7 +241,8 @@ export function StageControls({
 export function PraisePanel(props: SharedPanelProps) {
   type ValidSlide = { text: string; originalIndex: number }
 
-  const { request, isConfigured, onOpenSettings, onPresented } = props
+  const { request, isConfigured, onOpenSettings, onPresented, currentThemeId } = props
+  console.log(currentThemeId)
 
   // Busca
   const [query, setQuery] = useState("")
@@ -290,7 +292,6 @@ export function PraisePanel(props: SharedPanelProps) {
       setIsSearching(false)
     }
   }
-
 
   function normalizeSlides(rawSlides: { text?: string }[]) {
     const cleaned = rawSlides
@@ -367,9 +368,13 @@ export function PraisePanel(props: SharedPanelProps) {
 
     setPending(`slide-${position}`)
     try {
+      if (currentThemeId) {
+        await request("SetCurrentBackground", { id: currentThemeId })
+      }
       await request("ShowSong", {
         id: selectedSong.id,
         initial_index: position + 1, // ← teste com position primeiro
+        background_id: currentThemeId
       })
       setLiveIndex(position)
       onPresented({ title: `${songTitle} · slide ${position + 1}`, type: "Louvor" })
@@ -501,17 +506,19 @@ export function PraisePanel(props: SharedPanelProps) {
                 )
               })}
             </ol>
-            <button
-              className="button-secondary button-full"
-              disabled={busy || backgroundPending}
-              onClick={() => void showBackgroundWithoutLyrics()}
-              type="button"
-            >
-              {backgroundPending ? <LoaderCircle className="spin" /> : null}
-              Exibir apenas fundo (sem letra)
-            </button>
           </>
         )}
+
+
+        <button
+          className="button-secondary button-full"
+          disabled={busy || backgroundPending}
+          onClick={() => void showBackgroundWithoutLyrics()}
+          type="button"
+        >
+          {backgroundPending ? <LoaderCircle className="spin" /> : null}
+          Exibir apenas fundo (sem letra)
+        </button>
 
         <div className="player-controls" role="group" aria-label="Controles de projeção">
           <button
@@ -623,7 +630,7 @@ export function PraisePanel(props: SharedPanelProps) {
 }
 
 export function TextsPanel(props: SharedPanelProps) {
-  const { request, isConfigured, onOpenSettings, onPresented } = props
+  const { request, isConfigured, onOpenSettings, onPresented, currentThemeId } = props
   const [query, setQuery] = useState("")
   const [texts, setTexts] = useState<TextItem[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -654,6 +661,9 @@ export function TextsPanel(props: SharedPanelProps) {
     const title = text.title?.trim() || "Texto sem título"
     setPendingId(text.id)
     try {
+      if (currentThemeId) {
+        await request("SetCurrentBackground", { id: currentThemeId })
+      }
       await request("ShowText", { id: text.id })
       onPresented({ title, type: "Texto" })
     } catch {
@@ -760,13 +770,17 @@ export function BiblePanel({
     void loadBibleVersions()
   }, [isConfigured])
 
-  async function loadBibleVersions() {
+  async function loadBibleVersions() {  
     if (!isConfigured) return
     setVersionsLoading(true)
     setVersionsError("")
     try {
       const data = await request("GetBibleVersions", {})
-      setVersions(Array.isArray(data) ? data : [])
+      const all = Array.isArray(data) ? data : []
+      const ptOnly = all.filter(
+        (v) => v?.language?.id === "pt" || v?.language?.iso === "pt"
+      )
+      setVersions(ptOnly)
     } catch (error) {
       setVersions([])
       setVersionsError(getHolyricsErrorMessage(error))

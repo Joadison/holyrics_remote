@@ -36,6 +36,7 @@ import {
   requestHolyricsApi,
   type HolyricsConnection,
 } from "@/lib/holyrics-api"
+import { BackgroundsBar } from "@/components/holyrics/backgrounds-bar"
 
 type PanelId = "praise" | "texts" | "bible" | "files" | "quick"
 type View = "remote" | "settings"
@@ -63,6 +64,7 @@ export function HolyricsRemote() {
   const [activePanel, setActivePanel] = useState<PanelId>("praise")
   const [notice, setNotice] = useState<Notice | null>(null)
   const [logs, setLogs] = useState<LogItem[]>([])
+  const [currentThemeId, setCurrentThemeId] = useState<string | null>(null)
   const [currentPresentation, setCurrentPresentation] = useState<Presentation | null>(null)
 
   useEffect(() => {
@@ -267,6 +269,10 @@ export function HolyricsRemote() {
           ))}
         </nav>
       </div>
+      
+      {activePanel === "praise" || activePanel === "texts" ? (
+        <BackgroundsBar connection={connection} request={request} onThemeApplied={(id) => setCurrentThemeId(id)} />
+      ) : null}
 
       <div className="workspace-layout">
         <div className="workspace-main">
@@ -292,8 +298,8 @@ export function HolyricsRemote() {
             </div>
           </section> */}
 
-          {activePanel === "praise" ? <PraisePanel {...panelProps} /> : null}
-          {activePanel === "texts" ? <TextsPanel {...panelProps} /> : null}
+          {activePanel === "praise" ? <PraisePanel {...panelProps} currentThemeId={currentThemeId ?? undefined}  /> : null}
+          {activePanel === "texts" ? <TextsPanel {...panelProps}  currentThemeId={currentThemeId ?? undefined}  /> : null}
           {activePanel === "bible" ? <BiblePanel {...panelProps} /> : null}
           {activePanel === "files" ? <FilesPanel {...panelProps} /> : null}
           {activePanel === "quick" ? <QuickPanel {...panelProps} /> : null}

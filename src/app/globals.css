@@ -2375,3 +2375,65 @@ svg {
     transition-duration: 0.01ms !important;
   }
 }
+
+.backgrounds-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px;
+  margin: 12px 0;
+}
+
+.backgrounds-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.backgrounds-heading svg {
+  width: 16px;
+  height: 16px;
+}
+
+.backgrounds-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.background-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.background-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.background-chip.is-active {
+  border-color: currentColor;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.background-chip:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
