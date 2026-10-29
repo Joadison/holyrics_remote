@@ -13,7 +13,6 @@ import {
 } from "lucide-react"
 import { ActivityCard, type ActivityEntry } from "@/components/voice-bible/activity-card"
 import { ConnectionDialog, type ConnectionTestMessage } from "@/components/voice-bible/connection-dialog"
-import { ManualReferenceCard } from "@/components/voice-bible/manual-reference-card"
 import { PresentationCard } from "@/components/voice-bible/presentation-card"
 import { VoiceControlCard, type VoiceFeedback } from "@/components/voice-bible/voice-control-card"
 import { VoiceSettingsCard } from "@/components/voice-bible/voice-settings-card"
@@ -56,7 +55,7 @@ interface SpeechRecognitionEventLike {
 }
 
 interface SpeechRecognitionErrorLike {
-  error: string
+  error?: string
 }
 
 interface SpeechRecognitionLike {
@@ -184,9 +183,11 @@ export function VoiceBibleApp() {
   const [listening, setListening] = useState(false)
   const [sending, setSending] = useState(false)
   const [speechSupported, setSpeechSupported] = useState<boolean | null>(null)
+  const [micBlocked, setMicBlocked] = useState(false)
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const shouldListenRef = useRef(false)
+  const fatalErrorRef = useRef(false)
   const restartTimerRef = useRef<number | null>(null)
   const wakeLockRef = useRef<ScreenWakeLock | null>(null)
   const requestInFlightRef = useRef(false)
@@ -394,19 +395,31 @@ export function VoiceBibleApp() {
     if (lock) void lock.release().catch(() => undefined)
   }, [])
 
+  const clearRestartTimer = useCallback(() => {
+    if (restartTimerRef.current !== null) {
+      window.clearTimeout(restartTimerRef.current)
+      restartTimerRef.current = null
+    }
+  }, [])
+
   const stopListening = useCallback(() => {
     shouldListenRef.current = false
-    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
-    restartTimerRef.current = null
+    fatalErrorRef.current = false
+    clearRestartTimer()
     finalWordsRef.current = []
-    try {
-      recognitionRef.current?.stop()
-    } catch {
-      recognitionRef.current = null
+    const recognition = recognitionRef.current
+    recognitionRef.current = null
+    if (recognition) {
+      try {
+        recognition.abort()
+      } catch {
+        /* noop */
+      }
     }
     setListening(false)
+    setLiveTranscript("")
     releaseWakeLock()
-  }, [releaseWakeLock])
+  }, [clearRestartTimer, releaseWakeLock])
 
   const handleNavigationCommand = useCallback(
     async (command: NavigationCommand) => {
@@ -475,12 +488,33 @@ export function VoiceBibleApp() {
     }
     if (shouldListenRef.current) return
 
+    // Garante que não exista instância zumbi (HMR, clique duplo, restart anterior)
+    clearRestartTimer()
+    const previous = recognitionRef.current
+    recognitionRef.current = null
+    if (previous) {
+      try {
+        previous.abort()
+      } catch {
+        /* noop */
+      }
+    }
+
+    fatalErrorRef.current = false
+    setMicBlocked(false)
+
     const recognition = new Recognition()
     recognition.lang = "pt-BR"
-    recognition.continuous = true
+    // continuous=false é o modo mais estável no Chrome; nós reiniciamos
+    // manualmente no onend quando ainda há intenção de escutar.
+    recognition.continuous = false
     recognition.interimResults = true
     recognition.maxAlternatives = 1
+
+    let restartAttempts = 0
+
     recognition.onresult = (event) => {
+      restartAttempts = 0
       let latestTranscript = ""
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index]
@@ -495,29 +529,56 @@ export function VoiceBibleApp() {
       }
       if (latestTranscript) setLiveTranscript(latestTranscript)
     }
+
     recognition.onerror = (event) => {
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      const errorCode = event?.error ?? "unknown"
+
+      if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
+        fatalErrorRef.current = true
         shouldListenRef.current = false
+        clearRestartTimer()
         setListening(false)
+        setMicBlocked(true)
         releaseWakeLock()
-        setFeedback({ tone: "error", text: "Permita o acesso ao microfone nas configurações do navegador." })
-      } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        setFeedback({ tone: "error", text: `Falha no reconhecimento de voz: ${event.error}.` })
+        setFeedback({ tone: "error", text: "Permita o acesso ao microfone nas configurações do navegador e tente novamente." })
+        return
       }
+
+      if (errorCode === "no-speech" || errorCode === "aborted") return
+
+      setFeedback({ tone: "error", text: `Falha no reconhecimento de voz: ${errorCode}.` })
     }
+
     recognition.onend = () => {
-      if (shouldListenRef.current) {
-        restartTimerRef.current = window.setTimeout(() => {
-          if (!shouldListenRef.current) return
-          try {
-            recognition.start()
-          } catch {
-            setFeedback({ tone: "error", text: "A escuta foi interrompida. Toque para iniciar novamente." })
-          }
-        }, 350)
-      } else {
+      if (!shouldListenRef.current || fatalErrorRef.current) {
         setListening(false)
+        return
       }
+
+      restartAttempts = Math.min(restartAttempts + 1, 5)
+      const delay = Math.min(300 * 2 ** (restartAttempts - 1), 5000)
+
+      restartTimerRef.current = window.setTimeout(() => {
+        restartTimerRef.current = null
+        if (!shouldListenRef.current || fatalErrorRef.current) return
+        if (recognitionRef.current !== recognition) return
+
+        try {
+          recognition.start()
+        } catch {
+          // Se a instância morreu, encerra e pede novo clique.
+          try {
+            recognition.abort()
+          } catch {
+            /* noop */
+          }
+          if (recognitionRef.current === recognition) recognitionRef.current = null
+          shouldListenRef.current = false
+          setListening(false)
+          releaseWakeLock()
+          setFeedback({ tone: "error", text: "A escuta foi interrompida. Toque em Iniciar escuta novamente." })
+        }
+      }, delay)
     }
 
     recognitionRef.current = recognition
@@ -531,11 +592,12 @@ export function VoiceBibleApp() {
       recognition.start()
     } catch {
       shouldListenRef.current = false
+      recognitionRef.current = null
       setListening(false)
-      setFeedback({ tone: "error", text: "Não foi possível iniciar o microfone. Tente novamente." })
+      setFeedback({ tone: "error", text: "Não foi possível iniciar o microfone. Verifique a permissão e tente novamente." })
       releaseWakeLock()
     }
-  }, [releaseWakeLock, requestWakeLock])
+  }, [clearRestartTimer, releaseWakeLock, requestWakeLock])
 
   const toggleListening = useCallback(() => {
     if (listening) stopListening()
@@ -590,11 +652,19 @@ export function VoiceBibleApp() {
   useEffect(
     () => () => {
       shouldListenRef.current = false
-      if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
-      try {
-        recognitionRef.current?.abort()
-      } catch {
-        recognitionRef.current = null
+      fatalErrorRef.current = false
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current)
+        restartTimerRef.current = null
+      }
+      const recognition = recognitionRef.current
+      recognitionRef.current = null
+      if (recognition) {
+        try {
+          recognition.abort()
+        } catch {
+          /* noop */
+        }
       }
       releaseWakeLock()
     },
@@ -646,8 +716,8 @@ export function VoiceBibleApp() {
             </p>
           </div>
           <Badge className="w-fit shrink-0 gap-1.5 px-3 py-1.5" variant="outline">
-            {connection.mode === "internet" ? <Globe aria-hidden="true" /> : <Wifi aria-hidden="true" />}
-            {connection.mode === "internet" ? "Modo Internet" : "Rede local"}
+            <Wifi aria-hidden="true" />
+            "Rede local"
           </Badge>
         </section>
 
@@ -679,6 +749,21 @@ export function VoiceBibleApp() {
           </div>
         ) : null}
 
+        {micBlocked ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="status">
+            <div className="flex items-start gap-2">
+              <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <p>
+                O microfone está bloqueado para esta página. Permita o acesso no ícone de cadeado do navegador e
+                recarregue a página. Em seguida, toque em “Iniciar escuta”.
+              </p>
+            </div>
+            <Button onClick={() => setMicBlocked(false)} type="button" variant="outline">
+              Já permiti
+            </Button>
+          </div>
+        ) : null}
+
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <VoiceControlCard
@@ -704,7 +789,6 @@ export function VoiceBibleApp() {
           </div>
 
           <aside aria-label="Configurações e comandos da Bíblia" className="flex min-w-0 flex-col gap-5">
-            <ManualReferenceCard onSubmitReference={(value) => void submitManualReference(value)} />
             <VoiceSettingsCard
               autoProject={autoProject}
               bibleLoading={bibleLoading}
@@ -722,20 +806,7 @@ export function VoiceBibleApp() {
               recognizeText={recognizeText}
               translation={translation}
             />
-            <Card>
-              <CardContent className="flex flex-col gap-3 p-5">
-                <div className="flex items-center gap-2">
-                  <BookOpen aria-hidden="true" className="size-4 text-primary" />
-                  <h2 className="font-semibold">Comandos rápidos</h2>
-                </div>
-                <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
-                  <li><span className="font-medium text-foreground">“João 3:16”</span> · projeta a referência</li>
-                  <li><span className="font-medium text-foreground">“Próximo”</span> · avança um versículo</li>
-                  <li><span className="font-medium text-foreground">“Anterior”</span> · volta um versículo</li>
-                  <li><span className="font-medium text-foreground">“Fechar”</span> · encerra a apresentação</li>
-                </ul>
-              </CardContent>
-            </Card>
+            
             <ActivityCard entries={activity} />
           </aside>
         </div>

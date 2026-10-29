@@ -1,4 +1,4 @@
-export type HolyricsMode = "local" | "internet"
+export type HolyricsMode = "local"
 
 export interface HolyricsConnection {
   mode: HolyricsMode
@@ -40,10 +40,6 @@ export function isAllowedLocalHost(host: string) {
 export function isConnectionConfigured(connection: HolyricsConnection) {
   if (!connection.token.trim()) return false
 
-  if (connection.mode === "internet") {
-    return connection.apiKey.trim().length > 0
-  }
-
   const port = Number(connection.port)
   return isAllowedLocalHost(connection.host) && Number.isInteger(port) && port >= 1 && port <= 65535
 }
@@ -67,15 +63,9 @@ export async function callHolyrics(
 
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), 12_000)
-  const requestUrl =
-    connection.mode === "internet"
-      ? "/api/holyrics"
-      : `http://${connection.host.trim()}:${Number(connection.port)}/api/${action}?token=${encodeURIComponent(connection.token.trim())}`
-  const requestBody =
-    connection.mode === "internet"
-      ? JSON.stringify({ action, apiKey: connection.apiKey.trim(), token: connection.token.trim(), payload })
-      : JSON.stringify(payload)
-
+  const requestUrl = "/api/holyrics"
+  const requestBody = JSON.stringify({ action, apiKey: connection.apiKey.trim(), token: connection.token.trim(), payload })
+  
   try {
     const response = await fetch(requestUrl, {
       method: "POST",

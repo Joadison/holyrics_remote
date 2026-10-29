@@ -1,7 +1,6 @@
 "use client"
 
 import { Globe, LoaderCircle, ShieldCheck, Wifi } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -48,7 +47,7 @@ export function ConnectionDialog({
 
   const update = (field: keyof HolyricsConnection, value: string) => {
     if (field === "mode") {
-      onConnectionChange({ ...connection, mode: value === "internet" ? "internet" : "local" })
+      onConnectionChange({ ...connection, mode: "local" })
       return
     }
     onConnectionChange({ ...connection, [field]: value })

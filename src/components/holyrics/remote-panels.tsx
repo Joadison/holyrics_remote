@@ -372,6 +372,12 @@ export function PraisePanel(props: SharedPanelProps) {
 
     setPending(`slide-${position}`)
     try {
+      if (currentThemeId) {
+        await request("SetInterfaceInput", {
+          id: "main_selected_theme",
+          value: currentThemeId, // Theme ID
+        })
+      }
       await request("ShowSong", {
         id: selectedSong.id,
         initial_index: position + 1,

@@ -244,18 +244,16 @@ export function HolyricsRemote() {
         </section>
       ) : null}
 
-      {notice ? (
+      {/* {notice ? (
         <div className={`notice-banner is-${notice.type}`} role={notice.type === "error" ? "alert" : "status"}>
           <span>{notice.message}</span>
           <button aria-label="Fechar aviso" className="notice-close" onClick={() => setNotice(null)} type="button">
             <X aria-hidden="true" />
           </button>
         </div>
-      ) : null}
+      ) : null} */}
 
       {connectionStatus === "online" ? (<TelaoPage/>): null}
-      <TelaoPage/>
-      
 
       <div className="remote-tabs-wrap">
         <nav aria-label="Áreas de controle" className="remote-tabs" role="tablist">

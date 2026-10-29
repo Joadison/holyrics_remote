@@ -5,8 +5,7 @@ import useSWR from "swr"
 import {
   Check,
   ImageIcon,
-  LoaderCircle,
-  AlertCircle,
+  LoaderCircle
 } from "lucide-react"
 import {
   requestHolyricsApi,
