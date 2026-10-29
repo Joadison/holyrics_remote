@@ -36,7 +36,7 @@ type SharedPanelProps = {
   isConfigured: boolean
   onOpenSettings: () => void
   onPresented: (presentation: Presentation) => void
-   currentThemeId?: string | null
+  currentThemeId?: string | null
 }
 
 type Song = {
@@ -232,7 +232,6 @@ export function StageControls({
         ) : (
           <X />
         )}
-        <span>Fechar</span>
       </button>
     </div>
   )
@@ -242,7 +241,6 @@ export function PraisePanel(props: SharedPanelProps) {
   type ValidSlide = { text: string; originalIndex: number }
 
   const { request, isConfigured, onOpenSettings, onPresented, currentThemeId } = props
-  console.log(currentThemeId)
 
   // Busca
   const [query, setQuery] = useState("")
@@ -368,13 +366,9 @@ export function PraisePanel(props: SharedPanelProps) {
 
     setPending(`slide-${position}`)
     try {
-      if (currentThemeId) {
-        await request("SetCurrentBackground", { id: currentThemeId })
-      }
       await request("ShowSong", {
         id: selectedSong.id,
-        initial_index: position + 1, // ← teste com position primeiro
-        background_id: currentThemeId
+        initial_index: position + 1,
       })
       setLiveIndex(position)
       onPresented({ title: `${songTitle} · slide ${position + 1}`, type: "Louvor" })
@@ -661,9 +655,6 @@ export function TextsPanel(props: SharedPanelProps) {
     const title = text.title?.trim() || "Texto sem título"
     setPendingId(text.id)
     try {
-      if (currentThemeId) {
-        await request("SetCurrentBackground", { id: currentThemeId })
-      }
       await request("ShowText", { id: text.id })
       onPresented({ title, type: "Texto" })
     } catch {
@@ -1219,7 +1210,6 @@ export function QuickPanel({
               type="button"
             >
               {pendingAction === "close" ? <LoaderCircle className="spin" /> : <X />}
-              Fechar
             </button>
           </div>
         </section>

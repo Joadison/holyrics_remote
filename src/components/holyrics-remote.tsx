@@ -37,6 +37,7 @@ import {
   type HolyricsConnection,
 } from "@/lib/holyrics-api"
 import { BackgroundsBar } from "@/components/holyrics/backgrounds-bar"
+import TelaoPage from "./holyrics/telao"
 
 type PanelId = "praise" | "texts" | "bible" | "files" | "quick"
 type View = "remote" | "settings"
@@ -251,6 +252,10 @@ export function HolyricsRemote() {
           </button>
         </div>
       ) : null}
+
+      {connectionStatus === "online" ? (<TelaoPage/>): null}
+      <TelaoPage/>
+      
 
       <div className="remote-tabs-wrap">
         <nav aria-label="Áreas de controle" className="remote-tabs" role="tablist">

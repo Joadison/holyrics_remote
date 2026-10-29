@@ -73,7 +73,6 @@ export function ConnectionSettings({
 
       <div className="settings-content">
         <div className="settings-title-block">
-          <div className="settings-hero-icon"><PlugZap aria-hidden="true" /></div>
           <p className="eyebrow">HOLYRICS REMOTE</p>
           <h1>{initialConfig ? "Ajustes da conexão" : "Conecte seu Holyrics"}</h1>
           <p>

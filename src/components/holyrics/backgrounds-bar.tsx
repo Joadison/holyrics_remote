@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -59,50 +58,35 @@ export function BackgroundsBar({ connection, request, onThemeApplied }: Props) {
   const [applyingId, setApplyingId] = useState<string | null>(null)
   const [appliedId, setAppliedId] = useState<string | null>(null)
 
-  const key = connection
-    ? [
-        connection.host,
-        connection.port,
-        connection.token,
-        "backgrounds",
-      ] as const
-    : null
+  const connectionKey = connection
+  ? ([connection.host, connection.port, connection.token, "backgrounds"] as const)
+  : null
 
-  const { data, error, isLoading } = useSWR(
-    key,
-    async ([host, port, token]) =>
-      normalizeBackgrounds(
-        await requestHolyricsApi(
-          { host, port, token },
-          GET_BACKGROUNDS_ACTION,
-          {},
-        ),
-      ),
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-    },
-  )
+  const fetchBackgrounds = async ([host, port, token]: readonly [string, string, string, string]) =>
+    normalizeBackgrounds(
+      await requestHolyricsApi({ host, port, token }, GET_BACKGROUNDS_ACTION, {}),
+    )
+
+  const { data, error, isLoading } = useSWR(connectionKey, fetchBackgrounds, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  })
 
   async function applyBackground(background: Background) {
     if (!connection) return
     setApplyingId(background.id)
 
     try {
-      // 1) envia o comando pro Holyrics trocar o tema de fato
       await request("SetCurrentBackground", { id: background.id })
-
-      // 2) só marca como aplicado se deu certo
       setAppliedId(background.id)
       onThemeApplied?.(background.id)
     } catch (err) {
       console.error("Falha ao aplicar tema:", err)
-      // opcional: mostrar feedback de erro
     } finally {
-      // 3) ESSENCIAL: libera o botão novamente
       setApplyingId(null)
     }
   }
+
   if (!connection) return null
 
   return (
