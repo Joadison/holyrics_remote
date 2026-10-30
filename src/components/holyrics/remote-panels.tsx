@@ -114,7 +114,7 @@ function SearchBar({
   )
 }
 
-function EmptyState({
+export function EmptyState({
   icon,
   title,
   description,
@@ -141,7 +141,7 @@ function EmptyState({
   )
 }
 
-function PanelIntro({
+export function PanelIntro({
   eyebrow,
   id,
   title,

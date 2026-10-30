@@ -20,7 +20,6 @@ import {
 } from "lucide-react"
 import { ConnectionSettings } from "@/components/holyrics/connection-settings"
 import {
-  BiblePanel,
   FilesPanel,
   PraisePanel,
   QuickPanel,
@@ -29,6 +28,7 @@ import {
   type ApiRequest,
   type Presentation,
 } from "@/components/holyrics/remote-panels"
+import { BibleVoicePanel } from "@/components/voice-bible/voice-bible-app"
 import {
   getHolyricsErrorMessage,
   HOLYRICS_STORAGE_KEY,
@@ -303,7 +303,14 @@ export function HolyricsRemote() {
 
           {activePanel === "praise" ? <PraisePanel {...panelProps} currentThemeId={currentThemeId ?? undefined}  /> : null}
           {activePanel === "texts" ? <TextsPanel {...panelProps}  currentThemeId={currentThemeId ?? undefined}  /> : null}
-          {activePanel === "bible" ? <BiblePanel {...panelProps} /> : null}
+          <div hidden={activePanel !== "bible"}>
+            <BibleVoicePanel
+              request={request}
+              isConfigured={Boolean(connection)}
+              onOpenSettings={() => setView("settings")}
+              onPresented={setCurrentPresentation}
+            />
+          </div>
           {activePanel === "files" ? <FilesPanel {...panelProps} /> : null}
           {activePanel === "quick" ? <QuickPanel {...panelProps} /> : null}
         </div>
