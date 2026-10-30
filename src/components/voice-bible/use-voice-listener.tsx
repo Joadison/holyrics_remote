@@ -100,7 +100,7 @@ export function useVoiceListener(onFinal: (transcript: string) => Promise<void> 
     releaseWakeLock()
   }, [clearTimer, releaseWakeLock])
 
-  const start = useCallback(() => {
+  const startRecognition = useCallback(() => {
     const Recognition = getRecognitionCtor()
     if (!Recognition) {
       setSupported(false)
@@ -158,9 +158,14 @@ export function useVoiceListener(onFinal: (transcript: string) => Promise<void> 
         setListening(false)
         setMicBlocked(true)
         releaseWakeLock()
-        setError("Permita o acesso ao microfone nas configurações do navegador e tente novamente.")
+        setError(
+          code === "service-not-allowed"
+            ? "O serviço de voz do navegador foi recusado (service-not-allowed). Use Chrome ou Edge, em HTTPS ou localhost, e confira se a página não está dentro de um iframe/preview."
+            : "O navegador recusou o reconhecimento de voz (not-allowed), mesmo com o microfone liberado. Veja se a página está em HTTPS/localhost e se não há Permissions-Policy bloqueando o microfone.",
+        )
         return
       }
+
       if (code === "no-speech" || code === "aborted") return
       setError(`Falha no reconhecimento de voz: ${code}.`)
     }
@@ -209,6 +214,53 @@ export function useVoiceListener(onFinal: (transcript: string) => Promise<void> 
       setError("Não foi possível iniciar o microfone. Verifique a permissão e tente novamente.")
     }
   }, [clearTimer, releaseWakeLock, requestWakeLock])
+
+
+  const startingRef = useRef(false)
+
+  /** Diagnostica o motivo real antes de iniciar o reconhecimento. */
+  const start = useCallback(async () => {
+    if (startingRef.current || shouldListenRef.current) return
+    setError("")
+
+    if (!window.isSecureContext) {
+      setMicBlocked(true)
+      setError(
+        `Esta página não é segura (${location.origin}). O microfone só funciona em HTTPS ou em http://localhost. Abra por localhost ou rode o app com HTTPS.`,
+      )
+      return
+    }
+
+    if (window.self !== window.top) {
+      setError("A página está dentro de um iframe/preview, que bloqueia o microfone. Abra o app direto em uma aba do navegador.")
+      return
+    }
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      startingRef.current = true
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+      } catch (err) {
+        const name = err instanceof DOMException ? err.name : "Error"
+        setMicBlocked(name === "NotAllowedError" || name === "SecurityError")
+        setError(
+          name === "NotAllowedError" || name === "SecurityError"
+            ? `Microfone negado para este site (${name}). Clique no cadeado ao lado do endereço > Microfone > Permitir, e recarregue. Se o site for um IP, o navegador pode estar bloqueando por não ser HTTPS.`
+            : name === "NotFoundError"
+              ? "Nenhum microfone encontrado neste aparelho."
+              : name === "NotReadableError"
+                ? "O microfone está em uso por outro programa ou aba."
+                : `Não foi possível acessar o microfone (${name}).`,
+        )
+        return
+      } finally {
+        startingRef.current = false
+      }
+    }
+
+    startRecognition()
+  }, [startRecognition])
 
   useEffect(() => {
     setSupported(Boolean(getRecognitionCtor()))
