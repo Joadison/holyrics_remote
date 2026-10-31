@@ -91,7 +91,7 @@ export function ConnectionSettings({
           </div>
 
           <div className="settings-grid">
-            <label className="field-label" htmlFor="holyrics-protocol">
+            {/* <label className="field-label" htmlFor="holyrics-protocol">
               Protocolo
               <select
                 className="field-input"
@@ -102,7 +102,7 @@ export function ConnectionSettings({
                 <option value="http">http (rede local)</option>
                 <option value="https">https (túnel seguro / proxy)</option>
               </select>
-            </label>
+            </label> */}
             <label className="field-label" htmlFor="holyrics-host">
               IP ou nome do computador
               <input
