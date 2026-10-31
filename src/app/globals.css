@@ -2085,7 +2085,7 @@ svg {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 719px) {
   .app-shell {
     padding: 16px 14px calc(104px + env(safe-area-inset-bottom));
   }
@@ -2379,16 +2379,16 @@ svg {
 .backgrounds-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 10px;
-  margin: 12px 0;
+  gap: 4px;
+  padding: 0 5px;
+  margin: 10px 0;
 }
 
 .backgrounds-heading {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2402,9 +2402,9 @@ svg {
 
 .backgrounds-list {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   scrollbar-width: thin;
 }
 
@@ -2434,16 +2434,19 @@ svg {
 }
 
 .background-chip:disabled {
-  opacity: 0.6;
+  opacity: 0.9;
   cursor: wait;
 }
 
 .telao-page {
   display: flex;
+  justify-self: center;
   flex-direction: column;
+  gap: 4px;
   height: 20dvh;
-  margin: 45px 0;
-  background: #000;
+  width: 40dvh;
+  padding: 0 5px;
+  margin: 10px 0 30px 0;
   color: #fff;
 }
 
@@ -2463,13 +2466,12 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
+  padding: 1px 0;
 }
 
 .telao-actions {
   display: flex;
-  gap: 8px;
+  gap: 2px;
 }
 
 .telao-frame {

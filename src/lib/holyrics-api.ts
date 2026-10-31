@@ -77,49 +77,47 @@ export async function requestHolyricsApi<T = unknown>(
     connection.port,
     connection.token,
   )
-  const host = validated.host.includes(":") && !validated.host.startsWith("[")
-    ? `[${validated.host}]`
-    : validated.host
-  const url = new URL(
-    `/api/${encodeURIComponent(action)}`,
-    `http://${host}:${validated.port}`,
-  )
-  url.searchParams.set("token", validated.token)
 
   let response: Response
+
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    })
-  } catch {
+    response = await fetch(
+      `/api/holyrics/${encodeURIComponent(action)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          connection: validated,
+          body,
+        }),
+        cache: "no-store",
+      },
+    )
+  } catch (error) {
+    console.error("[Holyrics Remote]", error)
+
     throw new Error(
-      "Não foi possível alcançar o Holyrics. Confira o IP, a porta, a mesma rede Wi-Fi e as permissões de CORS/HTTP do navegador.",
+      "Não foi possível comunicar com o servidor local.",
     )
   }
 
   let payload: ApiEnvelope
+
   try {
-    const parsed: unknown = await response.json()
-    if (!parsed || typeof parsed !== "object") {
-      throw new Error("Resposta sem conteúdo JSON válido.")
-    }
-    payload = parsed as ApiEnvelope
+    payload = await response.json()
   } catch {
-    throw new Error(`A API do Holyrics retornou uma resposta inválida (HTTP ${response.status}).`)
-  }
-
-  if (!response.ok) {
-    throw new Error(`A API do Holyrics respondeu com HTTP ${response.status}.`)
-  }
-
-  if (payload.status !== "ok") {
     throw new Error(
-      typeof payload.error === "string" && payload.error
+      `Resposta inválida do servidor (HTTP ${response.status}).`,
+    )
+  }
+
+  if (!response.ok || payload.status !== "ok") {
+    throw new Error(
+      typeof payload.error === "string"
         ? payload.error
-        : "A API do Holyrics não confirmou a solicitação.",
+        : `Falha na comunicação (HTTP ${response.status}).`,
     )
   }
 
