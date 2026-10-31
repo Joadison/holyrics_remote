@@ -26,10 +26,11 @@ export function ConnectionSettings({
   const [error, setError] = useState("")
   const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [pending, setPending] = useState<"save" | "test" | "">("")
+  const [protocol, setProtocol] = useState<"http" | "https">(initialConfig?.protocol === "https" ? "https" : "http")
 
   function getCandidateConnection() {
     const token = replaceToken ? newToken : initialConfig?.token ?? ""
-    return validateHolyricsConnection(host, port, token)
+    return validateHolyricsConnection(host, port, token, protocol)
   }
 
   function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -90,6 +91,18 @@ export function ConnectionSettings({
           </div>
 
           <div className="settings-grid">
+            <label className="field-label" htmlFor="holyrics-protocol">
+              Protocolo
+              <select
+                className="field-input"
+                id="holyrics-protocol"
+                onChange={(event) => setProtocol(event.target.value === "https" ? "https" : "http")}
+                value={protocol}
+              >
+                <option value="http">http (rede local)</option>
+                <option value="https">https (túnel seguro / proxy)</option>
+              </select>
+            </label>
             <label className="field-label" htmlFor="holyrics-host">
               IP ou nome do computador
               <input

@@ -4,6 +4,7 @@ export type HolyricsConnection = {
   host: string
   port: string
   token: string
+  protocol?: "http" | "https"
 }
 
 export type HolyricsRequestBody = Record<string, unknown>
@@ -12,6 +13,10 @@ type ApiEnvelope = {
   status?: unknown
   error?: unknown
   data?: unknown
+}
+
+export function resolveProtocol(connection: Pick<HolyricsConnection, "protocol">): "http" | "https" {
+  return connection.protocol === "https" ? "https" : "http"
 }
 
 function normalizeHost(value: string) {
@@ -30,10 +35,12 @@ export function validateHolyricsConnection(
   hostValue: string,
   portValue: string,
   tokenValue: string,
+  protocolValue?: string,
 ): HolyricsConnection {
   const host = normalizeHost(hostValue)
   const portNumber = Number(portValue.trim())
   const token = tokenValue.trim()
+  const protocol = protocolValue === "https" ? "https" : "http"   
 
   if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
     throw new Error("Informe uma porta válida entre 1 e 65535.")
@@ -43,7 +50,7 @@ export function validateHolyricsConnection(
     throw new Error("Informe o token de acesso do Holyrics.")
   }
 
-  return { host, port: String(portNumber), token }
+  return { host, port: String(portNumber), token, protocol }  
 }
 
 export function readSavedHolyricsConnection(): HolyricsConnection | null {
@@ -60,7 +67,7 @@ export function readSavedHolyricsConnection(): HolyricsConnection | null {
       return null
     }
 
-    return validateHolyricsConnection(saved.host, saved.port, saved.token)
+    return validateHolyricsConnection(saved.host, saved.port, saved.token, saved.protocol)
   } catch {
     // Configuração inválida não é removida automaticamente: o usuário decide quando atualizá-la.
     return null
@@ -76,13 +83,16 @@ export async function requestHolyricsApi<T = unknown>(
     connection.host,
     connection.port,
     connection.token,
+    connection.protocol,
   )
   const host = validated.host.includes(":") && !validated.host.startsWith("[")
     ? `[${validated.host}]`
     : validated.host
+  
+  const protocol = resolveProtocol(validated)
   const url = new URL(
     `/api/${encodeURIComponent(action)}`,
-    `http://${host}:${validated.port}`,
+    `${protocol}://${host}:${validated.port}`,
   )
   url.searchParams.set("token", validated.token)
 
